@@ -8,7 +8,6 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-  <script src="pa-data.js"></script>
   <style>
     :root {
       --navy: #1B3A5F;
@@ -525,14 +524,18 @@
         "</ul>";
 
       document.getElementById("footer").textContent =
-        "Exported: " +
+        "Sumber: Google Sheet  ·  Sync: " +
         (m.exportedAt || "") +
         "  ·  Gabungan OH+Perangkat: " +
-        pct(k.gabungan) +
-        "  ·  Refresh: node dashboard/export-pa-dashboard.js";
+        pct(k.gabungan || 0);
 
       // Charts
-      new Chart(document.getElementById("kompChart"), {
+      if (window.__paCharts) {
+        window.__paCharts.forEach((c) => c.destroy());
+      }
+      window.__paCharts = [];
+
+      window.__paCharts.push(new Chart(document.getElementById("kompChart"), {
         type: "bar",
         data: {
           labels: data.components.map((c) => c.kode),
@@ -554,9 +557,9 @@
             x: { max: 100, ticks: { callback: (v) => v + "%" } },
           },
         },
-      });
+      }));
 
-      new Chart(document.getElementById("pieChart"), {
+      window.__paCharts.push(new Chart(document.getElementById("pieChart"), {
         type: "doughnut",
         data: {
           labels: data.statusPie.map((s) => s.label),
@@ -575,11 +578,11 @@
             legend: { position: "bottom", labels: { boxWidth: 12, font: { size: 11 } } },
           },
         },
-      });
+      }));
 
       const berjalanPct =
         d.total > 0 ? +((d.berjalan / d.total) * 100).toFixed(1) : 0;
-      new Chart(document.getElementById("donutChart"), {
+      window.__paCharts.push(new Chart(document.getElementById("donutChart"), {
         type: "doughnut",
         data: {
           labels: ["Berjalan", "Lain"],
@@ -605,15 +608,231 @@
             },
           },
         },
-      });
+      }));
     }
 
-    if (window.PA_DATA) {
-      render(window.PA_DATA);
-    } else {
-      document.getElementById("app").innerHTML =
-        "<p style='padding:24px'>Data tidak ditemukan. Jalankan <code>node dashboard/export-pa-dashboard.js</code> lalu buka ulang file ini.</p>";
+    /* —— Live sync dari Google Sheet (01_Dashboard) —— */
+    const SHEET_ID = "1dQVdYuAjC3k3SNLjBEp_FP-qYfOEsb8Nkcr0tMTJ5bg";
+    const SHEET_GID = "452601094";
+    const SHEET_CSV =
+      "https://docs.google.com/spreadsheets/d/" +
+      SHEET_ID +
+      "/export?format=csv&gid=" +
+      SHEET_GID;
+
+    function parseCsv(text) {
+      const rows = [];
+      let row = [];
+      let cell = "";
+      let inQ = false;
+      for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        const next = text[i + 1];
+        if (inQ) {
+          if (ch === '"' && next === '"') {
+            cell += '"';
+            i++;
+          } else if (ch === '"') {
+            inQ = false;
+          } else {
+            cell += ch;
+          }
+        } else if (ch === '"') {
+          inQ = true;
+        } else if (ch === ",") {
+          row.push(cell);
+          cell = "";
+        } else if (ch === "\n") {
+          row.push(cell);
+          rows.push(row);
+          row = [];
+          cell = "";
+        } else if (ch === "\r") {
+          /* skip */
+        } else {
+          cell += ch;
+        }
+      }
+      if (cell.length || row.length) {
+        row.push(cell);
+        rows.push(row);
+      }
+      return rows;
     }
+
+    function toNum(v) {
+      if (v == null || v === "") return 0;
+      if (typeof v === "number") return v;
+      const s = String(v).trim().replace(/%/g, "").replace(/,/g, "");
+      const n = Number(s);
+      return Number.isFinite(n) ? n : 0;
+    }
+
+    function toPct(v) {
+      if (v == null || v === "") return 0;
+      const s = String(v).trim();
+      const n = toNum(s);
+      if (s.includes("%") || n > 1) return n / 100;
+      return n;
+    }
+
+    function cell(rows, r, c) {
+      return (rows[r] && rows[r][c] != null ? String(rows[r][c]) : "").trim();
+    }
+
+    function parseDashboardCsv(text) {
+      const rows = parseCsv(text);
+      // Layout sheet: kolom A kosong → data mulai index 1
+      const kpiRow = 6;
+      const overall = toPct(cell(rows, kpiRow, 1));
+      const dokumentasi = toPct(cell(rows, kpiRow, 2));
+      const qaUat = toPct(cell(rows, kpiRow, 3));
+      const ai = toPct(cell(rows, kpiRow, 4));
+      const bast = toPct(cell(rows, kpiRow, 5));
+      const totalDel = toNum(cell(rows, kpiRow, 7));
+      const selesai = toNum(cell(rows, kpiRow, 8));
+      const berjalan = toNum(cell(rows, kpiRow, 9));
+      const belumMulai = toNum(cell(rows, kpiRow, 10));
+      const totalOh = toNum(cell(rows, kpiRow, 12));
+      const terserap = toNum(cell(rows, kpiRow, 13));
+      const sisa = toNum(cell(rows, kpiRow, 14));
+      const utilisasi = toPct(cell(rows, kpiRow, 15));
+
+      const metaRow = 4;
+      const realisasi35TA = toNum(cell(rows, metaRow, 2));
+      const taAktif = cell(rows, metaRow, 6) || "—";
+
+      const components = [];
+      const modules = [];
+      for (let r = 11; r < rows.length; r++) {
+        const kode = cell(rows, r, 1);
+        const id = cell(rows, r, 7);
+        if (/^[A-F]$/.test(kode)) {
+          components.push({
+            kode,
+            name: cell(rows, r, 2),
+            progress: toPct(cell(rows, r, 3)),
+            progressPct: Math.round(toPct(cell(rows, r, 3)) * 1000) / 10,
+            ohKontraktual: Math.round(toNum(cell(rows, r, 4))),
+          });
+        }
+        if (id && /^[A-F]\.\d+$/i.test(id)) {
+          const progress = toPct(cell(rows, r, 11));
+          modules.push({
+            id,
+            komponen: cell(rows, r, 8) || id.split(".")[0],
+            name: cell(rows, r, 9),
+            oh: toNum(cell(rows, r, 10)),
+            progress,
+            progressPct: Math.round(progress * 1000) / 10,
+            status: cell(rows, r, 12) || "—",
+            bobotOh: toNum(cell(rows, r, 10)),
+          });
+        }
+        if (cell(rows, r, 1).startsWith("METODE:")) break;
+      }
+
+      const lainnya = Math.max(0, totalDel - berjalan - belumMulai);
+      const subtitle = cell(rows, 2, 1);
+      let project = "Satu Data Itwasum Polri T.A. 2026";
+      let vendor = "PT Purecloud Datatech Indonesia";
+      if (subtitle.includes("|")) {
+        const parts = subtitle.split("|").map((s) => s.trim());
+        project = parts[0] || project;
+        vendor = (parts[1] || "").replace(/\s*Sumber:.*/i, "").trim() || vendor;
+      }
+
+      return {
+        meta: {
+          title: "Project Administrator",
+          project,
+          vendor,
+          source: "Spektek 2026",
+          periode: "7 Juli – 14 Agustus 2026",
+          exportedAt: new Date().toISOString(),
+          googleSheetId: SHEET_ID,
+          notes: [
+            "Data live dari Google Sheet 01_Dashboard.",
+            "Item Unit/Paket (E.8, F.*) tidak memboboti overall OH.",
+          ],
+        },
+        kpi: {
+          overall,
+          dokumentasi,
+          qaUat,
+          ai,
+          bast,
+          gabungan: overall,
+          perangkat: (components.find((c) => c.kode === "F") || {}).progress || 0,
+        },
+        deliverables: {
+          total: totalDel || modules.length,
+          selesai,
+          berjalan,
+          belumMulai,
+          perluVerifikasi: modules.filter((m) => m.status === "Perlu Verifikasi").length,
+          lainnya,
+        },
+        oh: {
+          total: totalOh,
+          terserap,
+          sisa,
+          utilisasi,
+          realisasi35TA,
+          taAktif,
+        },
+        components,
+        modules,
+        statusPie: [
+          { label: "Berjalan", value: berjalan, color: "#E85D4C" },
+          { label: "Belum Mulai", value: belumMulai, color: "#3D9B6E" },
+          { label: "Lainnya", value: lainnya, color: "#7B6BBF" },
+        ],
+      };
+    }
+
+    async function loadData() {
+      const statusEl = document.getElementById("footer");
+      if (statusEl) statusEl.textContent = "Menyinkronkan Google Sheet…";
+      try {
+        const url = SHEET_CSV + "&_t=" + Date.now();
+        const res = await fetch(url, { cache: "no-store" });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const text = await res.text();
+        if (!text || text.length < 50) throw new Error("CSV kosong");
+        const data = parseDashboardCsv(text);
+        if (!data.components.length && !data.modules.length) {
+          throw new Error("Format sheet tidak dikenali");
+        }
+        window.PA_DATA = data;
+        render(data);
+      } catch (err) {
+        console.error(err);
+        if (window.PA_DATA) {
+          render(window.PA_DATA);
+          if (statusEl) {
+            statusEl.textContent =
+              "Gagal sync Google Sheet (" +
+              err.message +
+              "). Menampilkan data lokal.";
+          }
+        } else {
+          document.getElementById("app").innerHTML =
+            "<div style='padding:28px;max-width:560px'>" +
+            "<h2 style='color:#1B3A5F'>Gagal memuat data Google Sheet</h2>" +
+            "<p>Pastikan spreadsheet dibagikan: <b>Anyone with the link → Viewer</b>.</p>" +
+            "<p style='color:#607D8B;font-size:12px'>" +
+            String(err.message || err) +
+            "</p>" +
+            "<p><a href='" +
+            SHEET_CSV +
+            "' target='_blank' rel='noopener'>Uji export CSV</a></p>" +
+            "</div>";
+        }
+      }
+    }
+
+    loadData();
   </script>
 </body>
 </html>
