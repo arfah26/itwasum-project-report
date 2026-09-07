@@ -32,14 +32,14 @@
       color: var(--ink);
       font-size: 13px;
     }
-    .page { margin: 0 auto; padding: 16px 18px 40px; }
+    .page { margin: 0 auto; padding: 16px 18px 40px; max-width: 100%; overflow-x: clip; }
     .header {
       background: linear-gradient(90deg, var(--navy), #245078);
       color: #fff;
       border-radius: 12px;
       padding: 14px 20px;
       display: flex;
-      margin: 10px 0px;
+      margin: 0 0 14px;
       justify-content: space-between;
       gap: 16px;
       align-items: center;
@@ -50,16 +50,25 @@
       align-items: center;
       gap: 14px;
       min-width: 0;
+      flex: 1;
     }
     .header-logo {
       height: 52px;
       width: auto;
+      max-width: 160px;
       flex-shrink: 0;
       border-radius: 6px;
       display: block;
+      object-fit: contain;
     }
-    .header h1 { margin: 0; font-size: 22px; font-weight: 700; }
-    .header .sub { margin: 4px 0 0; opacity: .9; font-size: 12px; }
+    .header h1 { margin: 0; font-size: 22px; font-weight: 700; line-height: 1.2; }
+    .header .sub {
+      margin: 4px 0 0;
+      opacity: .9;
+      font-size: 12px;
+      line-height: 1.35;
+      word-break: break-word;
+    }
     .header .periode {
       background: rgba(255,255,255,.12);
       border: 1px solid rgba(255,255,255,.25);
@@ -67,6 +76,7 @@
       padding: 8px 12px;
       font-size: 12px;
       white-space: nowrap;
+      flex-shrink: 0;
     }
     /* Top: 5 progress cards + panel 8 cards (2x4) seperti Dashboard.png */
     .top-metrics {
@@ -84,8 +94,12 @@
       grid-template-columns: repeat(5, minmax(0, 1fr));
       gap: 8px;
     }
-    @media (max-width: 900px) {
-      .progress-cards { grid-template-columns: repeat(2, 1fr); }
+    @media (max-width: 1100px) {
+      .progress-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
+    @media (max-width: 640px) {
+      .progress-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .progress-cards .kpi:first-child { grid-column: 1 / -1; }
     }
     .kpi {
       background: var(--card);
@@ -184,7 +198,15 @@
       min-height: 118px;
     }
     @media (max-width: 700px) {
-      .summary-panel { grid-template-columns: repeat(2, 1fr); grid-template-rows: auto; }
+      .summary-panel {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-rows: auto;
+      }
+    }
+    @media (max-width: 380px) {
+      .summary-panel { grid-template-columns: 1fr 1fr; gap: 6px; padding: 8px; }
+      .summary-cell { min-height: 64px; padding: 8px 6px; }
+      .summary-cell .v { font-size: 18px; }
     }
     .summary-cell {
       border: 1px solid #E2E8F0;
@@ -263,11 +285,19 @@
     table { width: 100%; border-collapse: collapse; font-size: 12px; }
     th, td { padding: 7px 8px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: middle; }
     th { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .04em; }
+    .table-scroll {
+      width: 100%;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior-x: contain;
+    }
+    .table-scroll table { min-width: 480px; }
+    .mod-grid .table-scroll table { min-width: 520px; }
     .bar-wrap {
       height: 8px; background: #E8EEF4; border-radius: 99px; overflow: hidden; min-width: 60px;
     }
     .bar-fill { height: 100%; background: var(--teal); border-radius: 99px; }
-    .chart-box { position: relative; height: 220px; }
+    .chart-box { position: relative; height: 220px; width: 100%; }
     .chart-box.sm { height: 180px; }
 
     .bottom {
@@ -279,13 +309,14 @@
       .bottom { grid-template-columns: 1fr; }
     }
     .mod-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
-    @media (max-width: 900px) { .mod-grid { grid-template-columns: 1fr; } }
+    @media (max-width: 900px) { .mod-grid { grid-template-columns: 1fr; gap: 12px; } }
     .badge {
       display: inline-block;
       padding: 2px 8px;
       border-radius: 999px;
       font-size: 11px;
       font-weight: 600;
+      white-space: nowrap;
     }
     .badge.berjalan { background: #E8F0FE; color: #1A56C4; }
     .badge.belum { background: #EEF2F5; color: #607D8B; }
@@ -297,6 +328,7 @@
     .summary-list li {
       display: flex; justify-content: space-between;
       padding: 8px 0; border-bottom: 1px solid var(--line); font-weight: 600;
+      gap: 12px;
     }
     .notes {
       background: #F7F9FC;
@@ -308,9 +340,79 @@
     }
     .notes strong { color: var(--navy); }
     .footer {
-      margin-top: 14px; font-size: 11px; color: var(--muted); text-align: right;
+      margin-top: 14px;
+      font-size: 11px;
+      color: var(--muted);
+      text-align: right;
+      line-height: 1.45;
+      word-break: break-word;
     }
     .pct { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--navy); }
+
+    /* —— Mobile / tablet polish —— */
+    @media (max-width: 900px) {
+      .page { padding: 12px 12px 28px; }
+      .header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+        padding: 12px 14px;
+      }
+      .header-brand { gap: 10px; }
+      .header-logo { height: 44px; max-width: 140px; }
+      .header h1 { font-size: 18px; }
+      .header .sub { font-size: 11px; }
+      .header .periode {
+        white-space: normal;
+        align-self: stretch;
+        text-align: left;
+      }
+      .kpi { min-height: 0; padding: 10px; }
+      .kpi .value { font-size: 22px; margin: 2px 0 6px; }
+      .kpi.has-tip::after {
+        left: 8px;
+        right: 8px;
+        bottom: auto;
+        top: calc(100% + 8px);
+        transform: none;
+        width: auto;
+        max-width: none;
+      }
+      .kpi.has-tip::before {
+        left: 24px;
+        bottom: auto;
+        top: calc(100% - 2px);
+        border-top-color: transparent;
+        border-bottom-color: #1B3A5F;
+      }
+      .kpi.has-tip:hover::after,
+      .kpi.has-tip:focus-visible::after {
+        transform: none;
+      }
+      .chart-box { height: 200px; }
+      .chart-box.sm { height: 170px; }
+      .footer { text-align: left; }
+    }
+
+    @media (max-width: 480px) {
+      .page { padding: 10px 10px 24px; }
+      .header-logo { height: 40px; max-width: 120px; }
+      .header h1 { font-size: 16px; }
+      .card { padding: 12px; border-radius: 10px; }
+      .card h2 { font-size: 13px; margin-bottom: 10px; }
+      .summary-cell .k { font-size: 8px; letter-spacing: .02em; }
+      .summary-cell .v { font-size: 18px; }
+      .kpi .label { font-size: 9px; }
+      .kpi .value { font-size: 20px; }
+      .kpi .hint { font-size: 9px; }
+      th, td { padding: 6px 6px; font-size: 11px; }
+      .mid, .bottom, .top-metrics { gap: 10px; margin-bottom: 10px; }
+    }
+
+    @media (hover: none) {
+      .kpi.has-tip:focus-visible::after,
+      .kpi.has-tip:focus-visible::before { opacity: 1; }
+    }
   </style>
 </head>
 <body>
@@ -333,12 +435,14 @@
     <div class="mid">
       <div class="card">
         <h2>Progress per Komponen</h2>
-        <table>
-          <thead>
-            <tr><th>Kode</th><th>Komponen</th><th>Progress</th><th>OH</th><th>Bar</th></tr>
-          </thead>
-          <tbody id="kompBody"></tbody>
-        </table>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr><th>Kode</th><th>Komponen</th><th>Progress</th><th>OH</th><th>Bar</th></tr>
+            </thead>
+            <tbody id="kompBody"></tbody>
+          </table>
+        </div>
       </div>
       <div class="card">
         <h2>Progress per Komponen (chart)</h2>
@@ -353,18 +457,22 @@
       <div class="card">
         <h2>Progress per Modul</h2>
         <div class="mod-grid">
-          <table>
-            <thead>
-              <tr><th>ID</th><th>Komp.</th><th>Modul</th><th>OH</th><th>%</th><th>Status</th></tr>
-            </thead>
-            <tbody id="modLeft"></tbody>
-          </table>
-          <table>
-            <thead>
-              <tr><th>ID</th><th>Komp.</th><th>Modul</th><th>OH</th><th>%</th><th>Status</th></tr>
-            </thead>
-            <tbody id="modRight"></tbody>
-          </table>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr><th>ID</th><th>Komp.</th><th>Modul</th><th>OH</th><th>%</th><th>Status</th></tr>
+              </thead>
+              <tbody id="modLeft"></tbody>
+            </table>
+          </div>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr><th>ID</th><th>Komp.</th><th>Modul</th><th>OH</th><th>%</th><th>Status</th></tr>
+              </thead>
+              <tbody id="modRight"></tbody>
+            </table>
+          </div>
         </div>
       </div>
       <div class="card">
