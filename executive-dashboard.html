@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Project Administrator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="pa-data.js"></script>
+  <style>
+    :root {
+      --navy: #1B3A5F;
+      --teal: #0D7377;
+      --bg: #E8EEF4;
+      --card: #ffffff;
+      --ink: #212121;
+      --muted: #607D8B;
+      --line: #D0D7DE;
+      --blue: #2F6FED;
+      --green: #2E9B6A;
+      --purple: #6B5CE7;
+      --orange: #E8913A;
+      --cyan: #3BA8C4;
+      --red: #E85D4C;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      font-size: 13px;
+    }
+    .page { margin: 0 auto; padding: 16px 18px 40px; }
+    .header {
+      background: linear-gradient(90deg, var(--navy), #245078);
+      color: #fff;
+      border-radius: 12px;
+      padding: 14px 20px;
+      display: flex;
+      margin: 10px 0px;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: center;
+      box-shadow: 0 8px 24px rgba(27,58,95,.25);
+    }
+    .header-brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      min-width: 0;
+    }
+    .header-logo {
+      height: 52px;
+      width: auto;
+      flex-shrink: 0;
+      border-radius: 6px;
+      display: block;
+    }
+    .header h1 { margin: 0; font-size: 22px; font-weight: 700; }
+    .header .sub { margin: 4px 0 0; opacity: .9; font-size: 12px; }
+    .header .periode {
+      background: rgba(255,255,255,.12);
+      border: 1px solid rgba(255,255,255,.25);
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+    /* Top: 5 progress cards + panel 8 cards (2x4) seperti Dashboard.png */
+    .top-metrics {
+      display: grid;
+      grid-template-columns: 1.55fr 1fr;
+      gap: 12px;
+      margin-bottom: 14px;
+      align-items: stretch;
+    }
+    @media (max-width: 1100px) {
+      .top-metrics { grid-template-columns: 1fr; }
+    }
+    .progress-cards {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 8px;
+    }
+    @media (max-width: 900px) {
+      .progress-cards { grid-template-columns: repeat(2, 1fr); }
+    }
+    .kpi {
+      background: var(--card);
+      border-radius: 12px;
+      padding: 12px 12px 10px;
+      box-shadow: 0 2px 10px rgba(27,58,95,.08);
+      display: flex;
+      flex-direction: column;
+      min-height: 118px;
+      border: 1px solid #E4EAF0;
+    }
+    .kpi .icon {
+      width: 28px; height: 28px;
+      border-radius: 8px;
+      display: grid; place-items: center;
+      font-size: 13px; font-weight: 700; color: #fff;
+      margin-bottom: 8px;
+      background: var(--blue);
+    }
+    .kpi.dok .icon { background: var(--green); }
+    .kpi.qa .icon { background: var(--purple); }
+    .kpi.ai .icon { background: var(--orange); }
+    .kpi.bast .icon { background: var(--cyan); }
+    .kpi .label { font-size: 10px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .03em; }
+    .kpi .value { font-size: 26px; font-weight: 700; color: var(--navy); margin: 4px 0 8px; line-height: 1.1; }
+    .kpi .hint { font-size: 10px; color: var(--muted); margin-top: auto; }
+    .kpi .pbar {
+      height: 4px; background: #E8EEF4; border-radius: 99px; overflow: hidden; margin: 6px 0 4px;
+    }
+    .kpi .pbar > span { display: block; height: 100%; border-radius: 99px; background: var(--blue); }
+    .kpi.dok .pbar > span { background: var(--green); }
+    .kpi.qa .pbar > span { background: var(--purple); }
+    .kpi.ai .pbar > span { background: var(--orange); }
+    .kpi.bast .pbar > span { background: var(--cyan); }
+    .kpi.has-tip {
+      position: relative;
+      cursor: help;
+    }
+    .kpi.has-tip::after {
+      content: attr(data-tip);
+      position: absolute;
+      left: 50%;
+      bottom: calc(100% + 8px);
+      transform: translateX(-50%) translateY(4px);
+      background: #1B3A5F;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 500;
+      line-height: 1.35;
+      padding: 8px 10px;
+      border-radius: 8px;
+      white-space: normal;
+      width: max-content;
+      max-width: 200px;
+      text-align: center;
+      box-shadow: 0 8px 20px rgba(27,58,95,.28);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .15s ease, transform .15s ease;
+      z-index: 20;
+    }
+    .kpi.has-tip::before {
+      content: "";
+      position: absolute;
+      left: 50%;
+      bottom: calc(100% + 2px);
+      transform: translateX(-50%);
+      border: 6px solid transparent;
+      border-top-color: #1B3A5F;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .15s ease;
+      z-index: 20;
+    }
+    .kpi.has-tip:hover::after,
+    .kpi.has-tip:focus-visible::after {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+    .kpi.has-tip:hover::before,
+    .kpi.has-tip:focus-visible::before {
+      opacity: 1;
+    }
+
+    /* 8 cards: 2 baris × 4 kolom dalam satu panel */
+    .summary-panel {
+      background: var(--card);
+      border: 1px solid #D8DEE6;
+      border-radius: 12px;
+      padding: 10px;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-rows: 1fr 1fr;
+      gap: 8px;
+      box-shadow: 0 2px 10px rgba(27,58,95,.06);
+      min-height: 118px;
+    }
+    @media (max-width: 700px) {
+      .summary-panel { grid-template-columns: repeat(2, 1fr); grid-template-rows: auto; }
+    }
+    .summary-cell {
+      border: 1px solid #E2E8F0;
+      border-radius: 10px;
+      background: #fff;
+      padding: 10px 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      min-height: 72px;
+    }
+    .summary-cell .k {
+      font-size: 9px;
+      color: var(--muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      margin-bottom: 4px;
+      line-height: 1.2;
+    }
+    .summary-cell .v {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--navy);
+      font-variant-numeric: tabular-nums;
+      line-height: 1.1;
+    }
+    .summary-cell.util .util-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .summary-cell.util .util-bar {
+      width: 100%;
+      max-width: 72px;
+      height: 4px;
+      background: #E8EEF4;
+      border-radius: 99px;
+      overflow: hidden;
+      margin-top: 6px;
+    }
+    .summary-cell.util .util-bar > span {
+      display: block; height: 100%; background: var(--green); border-radius: 99px;
+    }
+    .util-dot {
+      width: 22px; height: 22px; border-radius: 50%;
+      background: #E6F6ED; color: var(--green);
+      display: grid; place-items: center; font-size: 11px; font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .mid {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr 0.85fr;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    @media (max-width: 1100px) {
+      .mid { grid-template-columns: 1fr; }
+    }
+    .card {
+      background: var(--card);
+      border-radius: 12px;
+      padding: 14px;
+      box-shadow: 0 2px 10px rgba(27,58,95,.08);
+    }
+    .card h2 {
+      margin: 0 0 12px;
+      font-size: 14px;
+      color: var(--navy);
+      font-weight: 700;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th, td { padding: 7px 8px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: middle; }
+    th { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .04em; }
+    .bar-wrap {
+      height: 8px; background: #E8EEF4; border-radius: 99px; overflow: hidden; min-width: 60px;
+    }
+    .bar-fill { height: 100%; background: var(--teal); border-radius: 99px; }
+    .chart-box { position: relative; height: 220px; }
+    .chart-box.sm { height: 180px; }
+
+    .bottom {
+      display: grid;
+      grid-template-columns: 1.7fr 0.7fr;
+      gap: 12px;
+    }
+    @media (max-width: 1100px) {
+      .bottom { grid-template-columns: 1fr; }
+    }
+    .mod-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
+    @media (max-width: 900px) { .mod-grid { grid-template-columns: 1fr; } }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .badge.berjalan { background: #E8F0FE; color: #1A56C4; }
+    .badge.belum { background: #EEF2F5; color: #607D8B; }
+    .badge.selesai { background: #E6F6ED; color: #1F7A4D; }
+    .badge.verifikasi { background: #FFF3E0; color: #B36B00; }
+    .badge.lain { background: #F0ECFA; color: #5B4B9A; }
+
+    .summary-list { list-style: none; padding: 0; margin: 0 0 12px; }
+    .summary-list li {
+      display: flex; justify-content: space-between;
+      padding: 8px 0; border-bottom: 1px solid var(--line); font-weight: 600;
+    }
+    .notes {
+      background: #F7F9FC;
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+    .notes strong { color: var(--navy); }
+    .footer {
+      margin-top: 14px; font-size: 11px; color: var(--muted); text-align: right;
+    }
+    .pct { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--navy); }
+  </style>
+</head>
+<body>
+  <div class="page" id="app">
+    <div class="header">
+      <div class="header-brand">
+        <img
+          class="header-logo"
+          src="purecloud-logo-BW.png"
+          alt="PT Purecloud Datatech Indonesia"
+        />
+        <div>
+          <h1 id="title">Project Administrator</h1>
+          <p class="sub" id="subtitle"></p>
+        </div>
+      </div>
+      <div class="periode" id="periode"></div>
+    </div>
+    <div class="top-metrics" id="kpiRow"></div>
+    <div class="mid">
+      <div class="card">
+        <h2>Progress per Komponen</h2>
+        <table>
+          <thead>
+            <tr><th>Kode</th><th>Komponen</th><th>Progress</th><th>OH</th><th>Bar</th></tr>
+          </thead>
+          <tbody id="kompBody"></tbody>
+        </table>
+      </div>
+      <div class="card">
+        <h2>Progress per Komponen (chart)</h2>
+        <div class="chart-box"><canvas id="kompChart"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>Status Deliverable</h2>
+        <div class="chart-box sm"><canvas id="pieChart"></canvas></div>
+      </div>
+    </div>
+    <div class="bottom">
+      <div class="card">
+        <h2>Progress per Modul</h2>
+        <div class="mod-grid">
+          <table>
+            <thead>
+              <tr><th>ID</th><th>Komp.</th><th>Modul</th><th>OH</th><th>%</th><th>Status</th></tr>
+            </thead>
+            <tbody id="modLeft"></tbody>
+          </table>
+          <table>
+            <thead>
+              <tr><th>ID</th><th>Komp.</th><th>Modul</th><th>OH</th><th>%</th><th>Status</th></tr>
+            </thead>
+            <tbody id="modRight"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Ringkasan Status Modul</h2>
+        <ul class="summary-list" id="statusSummary"></ul>
+        <div class="chart-box sm"><canvas id="donutChart"></canvas></div>
+        <div class="notes" id="notes"></div>
+      </div>
+    </div>
+    <div class="footer" id="footer"></div>
+  </div>
+
+  <script>
+    function pct(n) {
+      return (Math.round(Number(n) * 1000) / 10).toFixed(1) + "%";
+    }
+    function fmt(n) {
+      return Number(n).toLocaleString("id-ID", { maximumFractionDigits: 0 });
+    }
+    function badgeClass(status) {
+      if (status === "Berjalan") return "berjalan";
+      if (status === "Selesai") return "selesai";
+      if (status === "Belum Mulai") return "belum";
+      if (status === "Perlu Verifikasi") return "verifikasi";
+      return "lain";
+    }
+    function utilSvg(p) {
+      const r = 22, c = 2 * Math.PI * r;
+      const offset = c * (1 - Math.min(1, Math.max(0, p)));
+      return `<svg class="util-ring" viewBox="0 0 52 52">
+        <circle cx="26" cy="26" r="${r}" fill="none" stroke="#E8EEF4" stroke-width="6"/>
+        <circle cx="26" cy="26" r="${r}" fill="none" stroke="#0D7377" stroke-width="6"
+          stroke-dasharray="${c}" stroke-dashoffset="${offset}"
+          transform="rotate(-90 26 26)" stroke-linecap="round"/>
+        <text x="26" y="30" text-anchor="middle" font-size="10" font-weight="700" fill="#1B3A5F">${pct(p)}</text>
+      </svg>`;
+    }
+
+    function pbar(n, maxPct) {
+      const w = Math.min(100, Math.max(0, Number(n) * 100));
+      return `<div class="pbar"><span style="width:${w}%"></span></div>`;
+    }
+
+    function render(data) {
+      const m = data.meta;
+      document.getElementById("title").textContent = m.title || "Project Administrator";
+      document.getElementById("subtitle").textContent =
+        m.project + "  |  " + m.vendor;
+      document.getElementById("periode").innerHTML =
+        "<div><b>Periode Monitoring</b></div>" + m.periode;
+
+      const k = data.kpi;
+      const d = data.deliverables;
+      const oh = data.oh;
+      const utilW = Math.min(100, Math.max(0, oh.utilisasi * 100));
+      document.getElementById("kpiRow").innerHTML = `
+        <div class="progress-cards">
+          <div class="kpi">
+            <div class="icon">%</div>
+            <div class="label">Total Progress</div>
+            <div class="value">${pct(k.overall)}</div>
+            ${pbar(k.overall)}
+            <div class="hint">OH-weighted Spektek</div>
+          </div>
+          <div
+            class="kpi dok has-tip"
+            tabindex="0"
+            data-tip="Dokumen dibuat setelah modul selesai"
+            title="Dokumen dibuat setelah modul selesai"
+          >
+            <div class="icon">D</div>
+            <div class="label">Progress Dokumentasi</div>
+            <div class="value">${pct(k.dokumentasi)}</div>
+            ${pbar(k.dokumentasi)}
+            <div class="hint">7 dokumen wajib</div>
+          </div>
+          <div class="kpi qa">
+            <div class="icon">Q</div>
+            <div class="label">Progress QA / UAT</div>
+            <div class="value">${pct(k.qaUat)}</div>
+            ${pbar(k.qaUat)}
+            <div class="hint">Checklist Spektek</div>
+          </div>
+          <div class="kpi ai">
+            <div class="icon">AI</div>
+            <div class="label">Progress AI + Governance</div>
+            <div class="value">${pct(k.ai)}</div>
+            ${pbar(k.ai)}
+            <div class="hint">AI + Governance</div>
+          </div>
+          <div class="kpi bast">
+            <div class="icon">B</div>
+            <div class="label">Progress BAST</div>
+            <div class="value">${pct(k.bast)}</div>
+            ${pbar(k.bast)}
+            <div class="hint">Checklist serah terima</div>
+          </div>
+        </div>
+        <div class="summary-panel" aria-label="Ringkasan deliverable dan OH">
+          <div class="summary-cell"><div class="k">Total Deliverable</div><div class="v">${d.total}</div></div>
+          <div class="summary-cell"><div class="k">Selesai</div><div class="v">${d.selesai}</div></div>
+          <div class="summary-cell"><div class="k">Berjalan</div><div class="v">${d.berjalan}</div></div>
+          <div class="summary-cell"><div class="k">Belum Mulai</div><div class="v">${d.belumMulai}</div></div>
+          <div class="summary-cell"><div class="k">Total OH</div><div class="v">${fmt(oh.total)}</div></div>
+          <div class="summary-cell"><div class="k">OH Terserap</div><div class="v">${fmt(oh.terserap)}</div></div>
+          <div class="summary-cell"><div class="k">Sisa OH</div><div class="v">${fmt(oh.sisa)}</div></div>
+          <div class="summary-cell util">
+            <div class="k">Utilisasi OH</div>
+            <div class="util-row">
+              <span class="util-dot">↻</span>
+              <div class="v">${pct(oh.utilisasi)}</div>
+            </div>
+            <div class="util-bar"><span style="width:${utilW}%"></span></div>
+          </div>
+        </div>
+      `;
+
+      document.getElementById("kompBody").innerHTML = data.components
+        .map(
+          (c) => `<tr>
+          <td><b>${c.kode}</b></td>
+          <td>${c.name}</td>
+          <td class="pct">${pct(c.progress)}</td>
+          <td>${fmt(c.ohKontraktual)}</td>
+          <td><div class="bar-wrap"><div class="bar-fill" style="width:${Math.min(100, c.progress * 100)}%"></div></div></td>
+        </tr>`
+        )
+        .join("");
+
+      const half = Math.ceil(data.modules.length / 2);
+      const rowHtml = (mod) => `<tr>
+        <td><b>${mod.id}</b></td>
+        <td>${mod.komponen}</td>
+        <td>${mod.name.length > 42 ? mod.name.slice(0, 40) + "…" : mod.name}</td>
+        <td>${fmt(mod.oh)}</td>
+        <td class="pct">${pct(mod.progress)}</td>
+        <td><span class="badge ${badgeClass(mod.status)}">${mod.status || "—"}</span></td>
+      </tr>`;
+      document.getElementById("modLeft").innerHTML = data.modules
+        .slice(0, half)
+        .map(rowHtml)
+        .join("");
+      document.getElementById("modRight").innerHTML = data.modules
+        .slice(half)
+        .map(rowHtml)
+        .join("");
+
+      document.getElementById("statusSummary").innerHTML = `
+        <li><span>Berjalan</span><span>${d.berjalan}</span></li>
+        <li><span>Belum Mulai</span><span>${d.belumMulai}</span></li>
+        <li><span>Lainnya</span><span>${d.lainnya}</span></li>
+      `;
+
+      document.getElementById("notes").innerHTML =
+        "<strong>Catatan penting</strong><ul style='margin:6px 0 0;padding-left:16px'>" +
+        (m.notes || []).map((n) => `<li>${n}</li>`).join("") +
+        "</ul>";
+
+      document.getElementById("footer").textContent =
+        "Exported: " +
+        (m.exportedAt || "") +
+        "  ·  Gabungan OH+Perangkat: " +
+        pct(k.gabungan) +
+        "  ·  Refresh: node dashboard/export-pa-dashboard.js";
+
+      // Charts
+      new Chart(document.getElementById("kompChart"), {
+        type: "bar",
+        data: {
+          labels: data.components.map((c) => c.kode),
+          datasets: [
+            {
+              label: "Progress %",
+              data: data.components.map((c) => +(c.progress * 100).toFixed(1)),
+              backgroundColor: "#0D7377",
+              borderRadius: 6,
+            },
+          ],
+        },
+        options: {
+          indexAxis: "y",
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { max: 100, ticks: { callback: (v) => v + "%" } },
+          },
+        },
+      });
+
+      new Chart(document.getElementById("pieChart"), {
+        type: "doughnut",
+        data: {
+          labels: data.statusPie.map((s) => s.label),
+          datasets: [
+            {
+              data: data.statusPie.map((s) => s.value),
+              backgroundColor: data.statusPie.map((s) => s.color),
+              borderWidth: 0,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: "bottom", labels: { boxWidth: 12, font: { size: 11 } } },
+          },
+        },
+      });
+
+      const berjalanPct =
+        d.total > 0 ? +((d.berjalan / d.total) * 100).toFixed(1) : 0;
+      new Chart(document.getElementById("donutChart"), {
+        type: "doughnut",
+        data: {
+          labels: ["Berjalan", "Lain"],
+          datasets: [
+            {
+              data: [d.berjalan, Math.max(0, d.total - d.berjalan)],
+              backgroundColor: ["#E85D4C", "#E8EEF4"],
+              borderWidth: 0,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: "68%",
+          plugins: {
+            legend: { display: false },
+            title: {
+              display: true,
+              text: berjalanPct + "% Modul Berjalan",
+              color: "#1B3A5F",
+              font: { size: 13, weight: "700" },
+            },
+          },
+        },
+      });
+    }
+
+    if (window.PA_DATA) {
+      render(window.PA_DATA);
+    } else {
+      document.getElementById("app").innerHTML =
+        "<p style='padding:24px'>Data tidak ditemukan. Jalankan <code>node dashboard/export-pa-dashboard.js</code> lalu buka ulang file ini.</p>";
+    }
+  </script>
+</body>
+</html>
