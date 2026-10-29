@@ -516,6 +516,19 @@
       return `<div class="pbar"><span style="width:${w}%"></span></div>`;
     }
 
+    function kpiCard(card) {
+      const tip = card.tip
+        ? ` tabindex="0" data-tip="${card.tip}" title="${card.tip}"`
+        : "";
+      return `<div class="kpi ${card.cls}"${tip}>
+            <div class="icon">${card.icon}</div>
+            <div class="label">${card.label}</div>
+            <div class="value">${pct(card.value)}</div>
+            ${pbar(card.value)}
+            <div class="hint">${card.hint}</div>
+          </div>`;
+    }
+
     function render(data) {
       const m = data.meta;
       document.getElementById("title").textContent = m.title || "Project Administrator";
@@ -528,48 +541,23 @@
       const d = data.deliverables;
       const oh = data.oh;
       const utilW = Math.min(100, Math.max(0, oh.utilisasi * 100));
+      const progressCards = [
+        { cls: "", icon: "%", label: "Total Progress", value: k.overall, hint: "OH-weighted Spektek" },
+        {
+          cls: "dok has-tip",
+          icon: "D",
+          label: "Progress Dokumentasi",
+          value: k.dokumentasi,
+          hint: "7 dokumen wajib",
+          tip: "Dokumen dibuat setelah modul selesai",
+        },
+        { cls: "qa", icon: "Q", label: "Progress QA / UAT", value: k.qaUat, hint: "Checklist Spektek" },
+        { cls: "ai", icon: "AI", label: "Progress AI + Governance", value: k.ai, hint: "AI + Governance" },
+        { cls: "bast", icon: "B", label: "Progress BAST", value: k.bast, hint: "Checklist serah terima" },
+      ].filter((card) => card.value != null);
       document.getElementById("kpiRow").innerHTML = `
-        <div class="progress-cards">
-          <div class="kpi">
-            <div class="icon">%</div>
-            <div class="label">Total Progress</div>
-            <div class="value">${pct(k.overall)}</div>
-            ${pbar(k.overall)}
-            <div class="hint">OH-weighted Spektek</div>
-          </div>
-          <div
-            class="kpi dok has-tip"
-            tabindex="0"
-            data-tip="Dokumen dibuat setelah modul selesai"
-            title="Dokumen dibuat setelah modul selesai"
-          >
-            <div class="icon">D</div>
-            <div class="label">Progress Dokumentasi</div>
-            <div class="value">${pct(k.dokumentasi)}</div>
-            ${pbar(k.dokumentasi)}
-            <div class="hint">7 dokumen wajib</div>
-          </div>
-          <div class="kpi qa">
-            <div class="icon">Q</div>
-            <div class="label">Progress QA / UAT</div>
-            <div class="value">${pct(k.qaUat)}</div>
-            ${pbar(k.qaUat)}
-            <div class="hint">Checklist Spektek</div>
-          </div>
-          <div class="kpi ai">
-            <div class="icon">AI</div>
-            <div class="label">Progress AI + Governance</div>
-            <div class="value">${pct(k.ai)}</div>
-            ${pbar(k.ai)}
-            <div class="hint">AI + Governance</div>
-          </div>
-          <div class="kpi bast">
-            <div class="icon">B</div>
-            <div class="label">Progress BAST</div>
-            <div class="value">${pct(k.bast)}</div>
-            ${pbar(k.bast)}
-            <div class="hint">Checklist serah terima</div>
-          </div>
+        <div class="progress-cards" style="grid-template-columns:repeat(${progressCards.length},minmax(0,1fr))">
+          ${progressCards.map(kpiCard).join("")}
         </div>
         <div class="summary-panel" aria-label="Ringkasan deliverable dan OH">
           <div class="summary-cell"><div class="k">Total Deliverable</div><div class="v">${d.total}</div></div>
@@ -788,57 +776,93 @@
       return (rows[r] && rows[r][c] != null ? String(rows[r][c]) : "").trim();
     }
 
+    function moduleStatus(raw, progress) {
+      const s = String(raw || "").trim();
+      if (/selesai/i.test(s)) return "Selesai";
+      if (/verifikasi/i.test(s)) return "Perlu Verifikasi";
+      if (/belum/i.test(s)) return "Belum Mulai";
+      if (/berjalan/i.test(s)) return "Berjalan";
+      if (progress >= 0.995) return "Selesai";
+      if (progress <= 0) return "Belum Mulai";
+      return "Berjalan";
+    }
+
     function parseDashboardCsv(text) {
       const rows = parseCsv(text);
-      // Layout sheet: kolom A kosong → data mulai index 1
-      const kpiRow = 6;
+      // Kolom A kosong. Sheet baru: KPI di baris 5. Sheet lama: KPI di baris 7.
+      const fresh = /deliverable/i.test(cell(rows, 3, 2));
+      const kpiRow = fresh ? 4 : 6;
       const overall = toPct(cell(rows, kpiRow, 1));
-      const dokumentasi = toPct(cell(rows, kpiRow, 2));
-      const qaUat = toPct(cell(rows, kpiRow, 3));
-      const ai = toPct(cell(rows, kpiRow, 4));
-      const bast = toPct(cell(rows, kpiRow, 5));
-      const totalDel = toNum(cell(rows, kpiRow, 7));
-      const selesai = toNum(cell(rows, kpiRow, 8));
-      const berjalan = toNum(cell(rows, kpiRow, 9));
-      const belumMulai = toNum(cell(rows, kpiRow, 10));
-      const totalOh = toNum(cell(rows, kpiRow, 12));
-      const terserap = toNum(cell(rows, kpiRow, 13));
-      const sisa = toNum(cell(rows, kpiRow, 14));
-      const utilisasi = toPct(cell(rows, kpiRow, 15));
+      const dokumentasi = fresh ? null : toPct(cell(rows, kpiRow, 2));
+      const qaUat = fresh ? null : toPct(cell(rows, kpiRow, 3));
+      const ai = fresh ? null : toPct(cell(rows, kpiRow, 4));
+      const bast = fresh ? null : toPct(cell(rows, kpiRow, 5));
+      const totalDel = toNum(cell(rows, kpiRow, fresh ? 2 : 7));
+      const selesai = toNum(cell(rows, kpiRow, fresh ? 3 : 8));
+      const berjalan = toNum(cell(rows, kpiRow, fresh ? 4 : 9));
+      const belumMulai = toNum(cell(rows, kpiRow, fresh ? 5 : 10));
+      const totalOh = toNum(cell(rows, kpiRow, fresh ? 7 : 12));
+      const terserap = toNum(cell(rows, kpiRow, fresh ? 8 : 13));
+      const sisa = toNum(cell(rows, kpiRow, fresh ? 9 : 14));
+      const utilisasi = toPct(cell(rows, kpiRow, fresh ? 10 : 15));
 
-      const metaRow = 4;
-      const realisasi35TA = toNum(cell(rows, metaRow, 2));
-      const taAktif = cell(rows, metaRow, 6) || "—";
+      const realisasi35TA = fresh ? 0 : toNum(cell(rows, 4, 2));
+      const taAktif = fresh ? "—" : cell(rows, 4, 6) || "—";
+
+      const idCol = fresh ? 5 : 7;
+      const kompCol = fresh ? 6 : 8;
+      const modCol = fresh ? 7 : 9;
+      const ohCol = fresh ? 8 : 10;
+      const progCol = fresh ? 9 : 11;
+      const statusCol = fresh ? 10 : 12;
+      let dataStart = 11;
+      for (let r = 0; r < rows.length; r++) {
+        if (cell(rows, r, 1) === "Kode") {
+          dataStart = r + 1;
+          break;
+        }
+      }
 
       const components = [];
       const modules = [];
-      for (let r = 11; r < rows.length; r++) {
+      for (let r = dataStart; r < rows.length; r++) {
         const kode = cell(rows, r, 1);
-        const id = cell(rows, r, 7);
-        if (/^[A-F]$/.test(kode)) {
+        const id = cell(rows, r, idCol);
+        if (/^[A-G]$/.test(kode)) {
+          const progress = toPct(cell(rows, r, 3));
+          const ohRaw = cell(rows, r, 4);
           components.push({
             kode,
             name: cell(rows, r, 2),
-            progress: toPct(cell(rows, r, 3)),
-            progressPct: Math.round(toPct(cell(rows, r, 3)) * 1000) / 10,
-            ohKontraktual: Math.round(toNum(cell(rows, r, 4))),
-          });
-        }
-        if (id && /^[A-F]\.\d+$/i.test(id)) {
-          const progress = toPct(cell(rows, r, 11));
-          modules.push({
-            id,
-            komponen: cell(rows, r, 8) || id.split(".")[0],
-            name: cell(rows, r, 9),
-            oh: toNum(cell(rows, r, 10)),
             progress,
             progressPct: Math.round(progress * 1000) / 10,
-            status: cell(rows, r, 12) || "—",
-            bobotOh: toNum(cell(rows, r, 10)),
+            ohKontraktual: ohRaw === "" ? null : Math.round(toNum(ohRaw)),
+          });
+        }
+        if (id && /^[A-G]\.\d+$/i.test(id)) {
+          const progress = toPct(cell(rows, r, progCol));
+          const oh = toNum(cell(rows, r, ohCol));
+          modules.push({
+            id,
+            komponen: cell(rows, r, kompCol) || id.split(".")[0],
+            name: cell(rows, r, modCol),
+            oh,
+            progress,
+            progressPct: Math.round(progress * 1000) / 10,
+            status: moduleStatus(cell(rows, r, statusCol), progress),
+            bobotOh: oh,
           });
         }
         if (cell(rows, r, 1).startsWith("METODE:")) break;
       }
+      components.forEach((c) => {
+        if (c.ohKontraktual != null) return;
+        c.ohKontraktual = Math.round(
+          modules
+            .filter((m) => m.komponen === c.kode)
+            .reduce((sum, m) => sum + m.oh, 0)
+        );
+      });
 
       const lainnya = Math.max(0, totalDel - berjalan - belumMulai);
       const subtitle = cell(rows, 2, 1);
