@@ -486,6 +486,17 @@
   </div>
 
   <script>
+    function monitoringPeriode(now) {
+      const end = now || new Date();
+      const months = [
+        "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+        "Juli", "Agustus", "September", "Oktober", "November", "Desember",
+      ];
+      const endLabel = end.getDate() + " " + months[end.getMonth()];
+      if (end.getFullYear() === 2026) return "7 Juli – " + endLabel + " 2026";
+      return "7 Juli 2026 – " + endLabel + " " + end.getFullYear();
+    }
+
     function pct(n) {
       return (Math.round(Number(n) * 1000) / 10).toFixed(1) + "%";
     }
@@ -880,7 +891,7 @@
           project,
           vendor,
           source: "Spektek 2026",
-          periode: "7 Juli – 14 Agustus 2026",
+          periode: monitoringPeriode(),
           exportedAt: new Date().toISOString(),
           googleSheetId: SHEET_ID,
           notes: [
